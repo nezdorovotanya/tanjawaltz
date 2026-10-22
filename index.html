@@ -30,7 +30,8 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 
 #buddy, #cloud { position: fixed; left: 0; top: 0; aspect-ratio: 1; touch-action: none; cursor: pointer; will-change: transform; }
 #buddy { width: var(--av, 198px); z-index: 30; }
-html:not(.ready) #buddy, html:not(.ready) #cloud { visibility: hidden; }   /* hidden until the script places them */
+html:not(.ready) #buddy, html:not(.ready) #cloud { visibility: hidden; animation: showAnyway 0s 2.5s forwards; }   /* safety: never stay hidden */
+@keyframes showAnyway { to { visibility: visible; } }   /* hidden until the script places them */
 #cloud { width: var(--cl, 155px); z-index: 31; }
 #buddy, #cloud { pointer-events: none; } #buddy svg *, #cloud svg * { pointer-events: visiblePainted; }   /* only the drawing itself is clickable, not its empty square */
 #buddy svg, #cloud svg { width: 100%; height: 100%; overflow: visible; display: block; }
@@ -1993,5 +1994,6 @@ html.mob .bubble .b { text-align: center; }
 </g>
 </g>
 </g></svg></div>
-<script src="grid.js"></script>
-<script src="app.js"></script>
+<script>window.SITE_V='1792701257'</script>
+<script src="grid.js?v=1792701257"></script>
+<script src="app.js?v=1792701257"></script>

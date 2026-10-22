@@ -252,7 +252,7 @@
 
   /* ================= PROJECTS ================= */
   let PROJECTS = [];
-  fetch('cases.json').then(r => r.json()).then(d => { PROJECTS = d; });
+  fetch('cases.json?v=' + (window.SITE_V || '')).then(r => r.json()).then(d => { PROJECTS = d; });
   const LABEL = { Fun: 'Fun', advertalyze: 'Advertalyze', resonance: 'Resonance', samolet: 'Samolet', tolk: 'Tolk', moremio: 'Moremio', TBC: 'TBC',
     Payme: 'Payme', VK: 'VK', zion: 'Zion', 'non-commercial': 'Non-commercial', cheshu: 'Cheshu', corrosion: 'Corrosion', yandex: 'Yandex', karpov: 'karpov.courses', georank: 'Georank' };
   let screen = 'map', openRegion = null;   // map | folders | viewer
