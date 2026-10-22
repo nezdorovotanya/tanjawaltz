@@ -104,6 +104,9 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .info { position: absolute; display: flex; flex-direction: column; gap: calc(var(--k) * 6px); }
 .info h2 { margin: 0; font: 600 calc(var(--k) * 23px)/1.1 var(--f); letter-spacing: -0.01em; background: linear-gradient(180deg, #000 30%, #6d7c8e); -webkit-background-clip: text; background-clip: text; color: transparent; text-wrap: balance; }
 .info p { margin: 0; font: 500 calc(var(--k) * 16px)/1.2 var(--f); color: var(--mute); }
+.info .desc { margin-top: calc(var(--k) * 8px); font: 500 calc(var(--k) * 15px)/1.4 var(--f); color: #3b4558; }
+.card.m .info .desc { font-size: 13px; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+.card.m .info .desc.open { -webkit-line-clamp: unset; display: block; }
 .tags { display: flex; flex-wrap: wrap; gap: calc(var(--k) * 5px) calc(var(--k) * 8px); margin-top: calc(var(--k) * 40px); }
 .tags span { height: calc(var(--k) * 40px); padding: 0 calc(var(--k) * 22px); border-radius: calc(var(--k) * 35px); background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 70%), var(--tag, var(--chip-b)); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .8), 0 1px 3px rgba(20, 34, 66, .08); color: #3b4558; font: 500 calc(var(--k) * 16px)/1 var(--f); display: inline-flex; align-items: center; }
 /* phone viewer: one vertical window, info left-aligned at the bottom */
@@ -131,7 +134,7 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 <div class="layer" id="viewer" role="dialog" aria-modal="true" aria-label="Project">
   <div class="card" id="card">
     <div class="gallery" id="gallery"></div>
-    <div class="info"><h2 id="vName"></h2><p id="vMeta"></p><div class="tags" id="vTags"></div></div>
+    <div class="info"><h2 id="vName"></h2><p id="vMeta"></p><p class="desc" id="vDesc" hidden></p><div class="tags" id="vTags"></div></div>
     <button class="close" id="closeViewer" aria-label="Close"><svg viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="#4a5360" stroke-width="2" stroke-linecap="round"/></svg></button>
   </div>
 </div>

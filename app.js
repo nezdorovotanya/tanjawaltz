@@ -400,7 +400,9 @@
     gallery.style.cssText = ''; card.querySelector('.info').style.cssText = '';
     const Hc = H() - 48 * k, pad = 12 * k, gap = 12 * k, Hi = Hc - 2 * pad;
     const L = p.items.filter(i => i.c === 'L'), B = p.items.filter(i => i.c !== 'L');
-    const tall = L.filter(i => i.h / i.w >= .95), wide = L.filter(i => i.h / i.w < .95);
+    // a layout can name its column (col: 'tall' | 'wide'); otherwise its shape decides
+    const isTall = i => i.col ? i.col === 'tall' : i.h / i.w >= .95;
+    const tall = L.filter(isTall), wide = L.filter(i => !isTall(i));
     const panels = [];
     if (B.length) {
       let bw;
@@ -410,6 +412,11 @@
     }
     if (wide.length) panels.push({ type: 'col', items: wide, w: (tall.length ? 720 : 820) * k });
     if (tall.length) panels.push({ type: 'col', items: tall, w: (B.length || wide.length ? 470 : 540) * k });
+    // when the case says where its columns go, keep the order it lists them in (posts first for Nechpul)
+    if (L.some(i => i.col) && tall.length && wide.length && p.items.indexOf(tall[0]) < p.items.indexOf(wide[0])) {
+      const ti = panels.findIndex(q => q.items === tall), wi = panels.findIndex(q => q.items === wide);
+      [panels[ti], panels[wi]] = [panels[wi], panels[ti]];
+    }
     const infoW = 295 * k;
     let sum = panels.reduce((s, q) => s + q.w, 0) + gap * Math.max(0, panels.length - 1);
     const room = W() - 48 * k - pad - infoW;
@@ -494,13 +501,14 @@
 
   // each tag keeps its own pastel everywhere on the site
   const TAGC = ['#ffd9f3', '#e2dcff', '#ebffb5', '#ffe2c6', '#d6e4ff', '#c8f6e4', '#fff2b8', '#ffd6d6'];
-  const TAGFIX = { 'branding': 0, 'typography': 1, 'polygraphy': 2, 'events': 3, 'social media': 4, 'key-visual generation': 5, 'art direction': 6, 'visual concepts': 7, 'web design': 4 };
+  const TAGFIX = { 'branding': 0, 'typography': 1, 'polygraphy': 2, 'events': 3, 'social media': 4, 'key-visual generation': 5, 'art direction': 6, 'visual concepts': 7, 'web design': 4, 'guides': 1 };
   function tagColor(t) { if (t in TAGFIX) return TAGC[TAGFIX[t]]; let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TAGC[h % TAGC.length]; }
   function openViewer(p, viaFolders) {
     fromFolders = viaFolders; screen = 'viewer'; cursorOn = false; G() && G().stop(); hush(); current = p;
     if (viaFolders) folders.classList.remove('open');
     buildViewer(p);
     $('vName').textContent = p.name; $('vMeta').textContent = [p.company, p.year].filter(Boolean).join(', ');
+    $('vDesc').textContent = p.desc || ''; $('vDesc').hidden = !p.desc; $('vDesc').classList.remove('open');
     $('vTags').innerHTML = ''; p.tags.forEach(t => { const sp = document.createElement('span'); sp.textContent = t; sp.style.setProperty('--tag', tagColor(t)); $('vTags').appendChild(sp); });
     viewer.classList.add('open'); G() && G().pause(true);
     teleport('avatar', P.cardAv);
@@ -514,6 +522,7 @@
     else { screen = 'map'; cursorOn = true; teleport('avatar', P.corner, clearZone); }
   }
   $('closeFolders').addEventListener('click', e => { e.stopPropagation(); closeFolders(); });
+  $('vDesc').addEventListener('click', e => { e.stopPropagation(); $('vDesc').classList.toggle('open'); });
   $('closeViewer').addEventListener('click', e => { e.stopPropagation(); closeViewer(); });
   viewer.addEventListener('click', e => { if (e.target === viewer) closeViewer(); });
   folders.addEventListener('click', e => { if (e.target === folders || e.target === shelf) closeFolders(); });
