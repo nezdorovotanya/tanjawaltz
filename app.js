@@ -6,10 +6,17 @@
   const G = () => window.gridBrush;
 
   /* ---------- layout from the 1440\u00d71024 frames ---------- */
-  let k, F, s, CF, cs;   // scale, avatar frame px, px per avatar unit, cloud frame px, px per cloud unit
+  let k, F, s, CF, cs, mob = false;   // scale, avatar frame px, px per avatar unit, cloud frame px, px per cloud unit, phone layout
   function measure() {
     k = Math.max(.72, Math.min(1, innerWidth / 1440, innerHeight / 1024));
     F = 198 * k; s = F / 540; CF = 155 * k; cs = CF / 540;
+    // phones (narrow or portrait screens): cloud centred on top, avatar centred at the bottom, each about a fifth of the screen tall
+    mob = innerWidth < 760 || innerWidth < innerHeight * .8;
+    if (mob) {
+      const vis = innerHeight * .2;
+      F = Math.min(vis * 540 / 410, innerWidth * .8); s = F / 540;
+      CF = Math.min(vis * 540 / 300, innerWidth * .9); cs = CF / 540;
+    }
     const r = document.documentElement.style;
     r.setProperty('--av', F + 'px'); r.setProperty('--cl', CF + 'px'); r.setProperty('--k', k);
   }
@@ -18,6 +25,16 @@
   let cardRect = [0, 0, 1337, 915];
   // avatar group positions in the frames \u2192 avatar frame top-left (group sits 70 units inside the frame)
   const fromGroup = (gx, gy) => [gx - 25.7 * k, gy - 25.7 * k];
+  // phone geometry: visible avatar is ~410 units tall (starting 65 units below the frame top); the cloud is centred at (270, 260)
+  const safeT = () => 14, safeB = () => 18;
+  const avTopToFrame = y => y - 65 * s, cloudBottom = () => cy + 400 * cs;
+  const M = {
+    center: () => [W() / 2 - 262 * s, H() * .58 - 270 * s],
+    corner: () => [W() / 2 - 262 * s, H() - safeB() - 475 * s],
+    byCloud: () => [W() / 2 - 262 * s, avTopToFrame(P.cloud()[1] + 400 * cs + 110)],
+    cloud: () => [W() / 2 - 270 * cs, safeT() - 115 * cs],
+    folderAv: () => M.corner()
+  };
   const P = {
     center: () => [W() / 2 - 182.7 * k, H() / 2 - 119.7 * k],
     corner: () => [72.3 * k, H() - 242.7 * k],
@@ -30,13 +47,20 @@
     cardAv: () => { const [x, y, w, h] = cardRect; return [x + w - 189.7 * k, y + h - 192.7 * k]; },
     cardCloud: () => { const [x, y, w, h] = cardRect; return [x + w - 78 * k, y + h - 322 * k]; }
   };
+  for (const key of Object.keys(M)) { const desk = P[key]; P[key] = (...a) => mob ? M[key](...a) : desk(...a); }
 
   /* ---------- speech bubble ---------- */
   let bubbleSide = 'r';
   function placeBubble() {
     const b = bubble.querySelector('.b'), h = b.offsetHeight, w = b.offsetWidth;
     const d1 = bubble.querySelector('.d1'), d2 = bubble.querySelector('.d2');
-    if (bubbleSide === 'r') {
+    if (mob) {
+      const mid = ax + 262 * s, top = ay + 65 * s, half = w / 2;
+      const left = Math.max(10, Math.min(W() - 10 - w, mid - half));
+      anchor.style.transform = `translate(${mid}px, ${top}px)`;
+      b.style.left = (left - mid) + 'px'; b.style.top = (-h - 22 * k) + 'px';
+      d1.style.left = (-5.5 * k) + 'px'; d1.style.top = (-18 * k) + 'px'; d2.style.left = (-2 * k) + 'px'; d2.style.top = (-8 * k) + 'px';
+    } else if (bubbleSide === 'r') {
       anchor.style.transform = `translate(${ax + 192 * k}px, ${ay}px)`;
       b.style.left = '0'; b.style.top = (72 * k - h) + 'px';
       d1.style.left = (-9.3 * k) + 'px'; d1.style.top = (62 * k) + 'px'; d2.style.left = (-15.3 * k) + 'px'; d2.style.top = (73 * k) + 'px';
@@ -346,7 +370,14 @@
     dotRaf = requestAnimationFrame(tick);
   }
   // the x sits in the top-right corner, left of the cloud
-  function placeFoldersClose() { closeIcon($('closeFolders'), W() - 230 * k, 48 * k); }
+  function placeFoldersClose() {
+    if (mob) {
+      closeIcon($('closeFolders'), W() - 40 * k - 14, 14);
+      shelf.style.top = Math.max(60, P.cloud()[1] + 395 * cs) + "px";
+      shelf.style.bottom = (H() - (P.folderAv()[1] + 65 * s) + 70) + 'px';
+      shelf.style.paddingLeft = shelf.style.paddingRight = '14px';
+    } else { shelf.style.top = shelf.style.bottom = shelf.style.paddingLeft = shelf.style.paddingRight = ''; closeIcon($('closeFolders'), W() - 230 * k, 48 * k); }
+  }
   function closeFolders() {
     folders.classList.remove('open'); screen = 'map'; cursorOn = true; hush(); G() && G().pause(false);
     teleport('avatar', P.corner, clearZone);
@@ -478,7 +509,19 @@
   buddy.addEventListener('click', e => { e.stopPropagation(); if (!live) return skip(); if (moved) return; quietUntil = performance.now() + 1800; poke(); });
   cloud.addEventListener('click', e => { e.stopPropagation(); if (!live) return skip(); cloudClick(); if (screen === 'map') { quietUntil = performance.now() + 2200; naming = null; talk('About me is coming soon'); } });
   cloud.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') cloud.click(); });
+  let touchTapAt = 0;
+  function tapAt(e) {
+    if (moved) return;
+    if (!live) return skip();
+    if (screen === 'map' && !e.target.closest('.layer') && !e.target.closest('#buddy') && !e.target.closest('#cloud')) openRegionAt(e.clientX, e.clientY);
+  }
+  addEventListener('pointerup', e => {
+    if (e.pointerType === 'mouse' || e.target.closest('button, #buddy, #cloud, .layer')) return;
+    touchTapAt = performance.now(); tapAt(e);
+    if (screen === 'map' && cursorOn) setTimeout(() => G() && G().stop(), 900);
+  });
   addEventListener('click', e => {
+    if (performance.now() - touchTapAt < 700) return;
     if (moved) return;
     if (!live) return skip();
     if (screen === 'map' && !e.target.closest('.layer')) openRegionAt(e.clientX, e.clientY);
