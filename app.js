@@ -6,18 +6,20 @@
   const G = () => window.gridBrush;
 
   /* ---------- layout from the 1440\u00d71024 frames ---------- */
-  let k, F, s, CF, cs, mob = false;   // scale, avatar frame px, px per avatar unit, cloud frame px, px per cloud unit, phone layout
+  let k, F, s, CF, cs, mob = false, small = false;   // scale, avatar frame px, px per avatar unit, cloud frame px, px per cloud unit, phone layout
   function measure() {
     k = Math.max(.72, Math.min(1, innerWidth / 1440, innerHeight / 1024));
     F = 198 * k; s = F / 540; CF = 155 * k; cs = CF / 540;
+    const r = document.documentElement.style;
     // phones (narrow or portrait screens): cloud centred on top, avatar centred at the bottom, each about a fifth of the screen tall
     mob = innerWidth < 760 || innerWidth < innerHeight * .8;
     if (mob) {
-      const vis = innerHeight * .2;
-      F = Math.min(vis * 540 / 410, innerWidth * .8); s = F / 540;
-      CF = Math.min(vis * 540 / 300, innerWidth * .9); cs = CF / 540;
+      // a fifth of the screen each; half that on the project viewer, where the card needs the room
+      const va = innerHeight * (small ? .1 : .2), vc = innerHeight * (small ? .075 : .2);
+      F = Math.min(va * 540 / 410, innerWidth * .8); s = F / 540;
+      CF = Math.min(vc * 540 / 300, innerWidth * .9); cs = CF / 540;
+      r.setProperty('--av', F + 'px'); r.setProperty('--cl', CF + 'px');
     }
-    const r = document.documentElement.style;
     r.setProperty('--av', F + 'px'); r.setProperty('--cl', CF + 'px'); r.setProperty('--k', k);
   }
   measure();
@@ -28,11 +30,16 @@
   // phone geometry: visible avatar is ~410 units tall (starting 65 units below the frame top); the cloud is centred at (270, 260)
   const safeT = () => 14, safeB = () => 18;
   const avTopToFrame = y => y - 65 * s, cloudBottom = () => cy + 400 * cs;
+  const big = () => { if (small) { small = false; measure(); } }, little = () => { if (!small) { small = true; measure(); } };
+  // phone viewer card: full width, 70% of the screen tall, starting a tenth of the way down
+  const mobCard = () => [14, Math.round(H() * .1), W() - 28, Math.round(H() * .7)];
   const M = {
-    center: () => [W() / 2 - 262 * s, H() * .58 - 270 * s],
-    corner: () => [W() / 2 - 262 * s, H() - safeB() - 475 * s],
-    byCloud: () => [W() / 2 - 262 * s, avTopToFrame(P.cloud()[1] + 400 * cs + 110)],
-    cloud: () => [W() / 2 - 270 * cs, safeT() - 115 * cs],
+    cardAv: () => { little(); const [x, y, w, h] = mobCard(); return [W() / 2 - 262 * s, y + h + 12 - 65 * s]; },
+    cardCloud: () => { little(); const y = mobCard()[1]; return [W() / 2 - 270 * cs, y / 2 - 255 * cs]; },
+    center: () => { big(); return [W() / 2 - 262 * s, H() * .58 - 270 * s]; },
+    corner: () => { big(); return [W() / 2 - 262 * s, H() - safeB() - 475 * s]; },
+    byCloud: () => { big(); return [W() / 2 - 262 * s, avTopToFrame(P.cloud()[1] + 400 * cs + 110)]; },
+    cloud: () => { big(); return [W() / 2 - 270 * cs, safeT() - 115 * cs]; },
     folderAv: () => M.corner()
   };
   const P = {
@@ -386,6 +393,9 @@
   /* ---------- the viewer is built around the content: a board of draggable objects and columns of layouts ---------- */
   let current = null;
   function buildViewer(p) {
+    card.classList.toggle('m', mob);
+    if (mob) return buildViewerPhone(p);
+    gallery.style.cssText = ''; card.querySelector('.info').style.cssText = '';
     const Hc = H() - 48 * k, pad = 12 * k, gap = 12 * k, Hi = Hc - 2 * pad;
     const L = p.items.filter(i => i.c === 'L'), B = p.items.filter(i => i.c !== 'L');
     const tall = L.filter(i => i.h / i.w >= .95), wide = L.filter(i => i.h / i.w < .95);
@@ -414,6 +424,22 @@
     });
     const info = card.querySelector('.info'); Object.assign(info.style, { left: (w - infoW + 22 * k) + 'px', top: 17 * k + 'px', width: (infoW - 80 * k) + 'px' });
     closeIcon($('closeViewer'), w - 56 * k, 17 * k);
+  }
+  // phones: one tall window that scrolls through the objects board and then every layout; the project info sits under it
+  function buildViewerPhone(p) {
+    const [x, y, w, h] = cardRect = mobCard();
+    Object.assign(card.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+    gallery.innerHTML = ''; gallery.style.cssText = ''; card.querySelector('.info').style.cssText = '';
+    const iw = w - 20, B = p.items.filter(i => i.c !== 'L'), L = p.items.filter(i => i.c === 'L');
+    if (B.length) {
+      const bh = Math.round(iw * (B.length > 12 ? 1.35 : B.length > 4 ? 1.1 : .9));
+      const el = document.createElement('div'); el.className = 'board'; el.style.width = iw + 'px'; el.style.height = bh + 'px'; gallery.appendChild(el);
+      fillBoard(el, B, iw, bh, false);
+    }
+    L.forEach(it => { const img = document.createElement('img'); img.src = it.src; img.alt = ''; img.loading = 'lazy'; img.className = it.a ? 'cut' : 'rect';
+      img.style.aspectRatio = it.w + ' / ' + it.h; gallery.appendChild(img); });
+    gallery.scrollTop = 0;
+    closeIcon($('closeViewer'), w - 40 * k - 18, 18);
   }
   // shelf-pack the objects, shrinking until everything fits, then scatter them a little
   function fillBoard(el, items, bw, bh, native) {
