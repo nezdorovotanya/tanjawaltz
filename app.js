@@ -6,18 +6,20 @@
   const G = () => window.gridBrush;
 
   /* ---------- layout from the 1440\u00d71024 frames ---------- */
+  const AVS = 1.2, CLS = 1.4, MOBS = .8;   // size multipliers on top of the frames (desktop avatar, desktop cloud, both on phones)
   let k, F, s, CF, cs, mob = false, small = false;   // scale, avatar frame px, px per avatar unit, cloud frame px, px per cloud unit, phone layout
   function measure() {
     k = Math.max(.72, Math.min(1, innerWidth / 1440, innerHeight / 1024));
-    F = 198 * k; s = F / 540; CF = 155 * k; cs = CF / 540;
+    F = 198 * k * AVS; s = F / 540; CF = 155 * k * CLS; cs = CF / 540;   // desktop: avatar 1.2×, cloud 1.4× the frames
     const r = document.documentElement.style;
     // phones (narrow or portrait screens): cloud centred on top, avatar centred at the bottom, each about a fifth of the screen tall
     mob = innerWidth < 760 || innerWidth < innerHeight * .8;
+    document.documentElement.classList.toggle('mob', mob);
     if (mob) {
       // a fifth of the screen each; half that on the project viewer, where the card needs the room
       const va = innerHeight * (small ? .15 : .2), vc = innerHeight * (small ? .075 : .2);
-      F = Math.min(va * 540 / 410, innerWidth * .8); s = F / 540;
-      CF = Math.min(vc * 540 / 300, innerWidth * .9); cs = CF / 540;
+      F = Math.min(va * 540 / 410, innerWidth * .8) * MOBS; s = F / 540;
+      CF = Math.min(vc * 540 / 300, innerWidth * .9) * MOBS; cs = CF / 540;
       r.setProperty('--av', F + 'px'); r.setProperty('--cl', CF + 'px');
     }
     r.setProperty('--av', F + 'px'); r.setProperty('--cl', CF + 'px'); r.setProperty('--k', k);
@@ -35,26 +37,29 @@
   const mobCard = () => { const t = Math.round(H() * .1); return [14, t, W() - 28, H() - 40 - t]; };
   const M = {
     // avatar sits on the card's bottom-right corner, its lower part hanging over the edge
-    cardAv: () => { little(); const [x, y, w, h] = mobCard(); return [x + w - 150 * s - 262 * s, y + h + 115 * s - 475 * s]; },
+    cardAv: () => { little(); const [x, y, w, h] = mobCard(); return [W() / 2 - 262 * s, y + h - 24 - 65 * s]; },
     // cloud sits on the card's top-left corner
     cardCloud: () => { little(); const [x, y] = mobCard(); return [x + 150 * cs - 270 * cs, y + 35 * cs - 255 * cs]; },
     center: () => { big(); return [W() / 2 - 262 * s, H() * .58 - 270 * s]; },
     corner: () => { big(); return [W() / 2 - 262 * s, H() - safeB() - 475 * s]; },
     byCloud: () => { big(); return [W() / 2 - 262 * s, avTopToFrame(P.cloud()[1] + 400 * cs + 110)]; },
     cloud: () => { big(); return [W() / 2 - 270 * cs, safeT() - 115 * cs]; },
-    folderAv: () => M.corner()
+    folderAv: () => { little(); return [W() / 2 - 262 * s, H() - 64 - 65 * s]; }   // peeks up from the bottom, like on the project card
   };
+  // the frames were drawn for the 1× sizes: keep a point of the figure fixed (its middle, its feet, the cloud's top-right) as it grows
+  const gA = (p, ux, uy) => [p[0] - ux * (s - 198 * k / 540), p[1] - uy * (s - 198 * k / 540)];
+  const gC = (p, ux, uy) => [p[0] - ux * (cs - 155 * k / 540), p[1] - uy * (cs - 155 * k / 540)];
   const P = {
-    center: () => [W() / 2 - 182.7 * k, H() / 2 - 119.7 * k],
-    corner: () => [72.3 * k, H() - 242.7 * k],
-    hop: i => { const g = [[239, 122], [533, 644], [978, 379]][i]; return fromGroup(g[0] / 1440 * W(), g[1] / 1024 * H()); },
-    byCloud: () => [W() - (1440 - 1061.5) * k, 90 * k],
-    cloud: () => [W() - (1440 - 1273) * k, -6 * k],
-    folderAv: () => fromGroup(116 * k, H() - (1024 - 839) * k),
+    center: () => gA([W() / 2 - 182.7 * k, H() / 2 - 119.7 * k], 262, 270),
+    corner: () => gA([72.3 * k, H() - 242.7 * k], 150, 475),
+    hop: i => { const g = [[239, 122], [533, 644], [978, 379]][i]; return gA(fromGroup(g[0] / 1440 * W(), g[1] / 1024 * H()), 262, 270); },
+    byCloud: () => gA([W() - (1440 - 1061.5) * k, 90 * k], 262, 270),
+    cloud: () => gC([W() - (1440 - 1273) * k, -6 * k], 500, 110),
+    folderAv: () => gA(fromGroup(116 * k, H() - (1024 - 839) * k), 150, 475),
     cardBox: () => cardRect,
     // avatar and cloud sit in the info column, measured from the card's bottom-right corner (frame 6)
-    cardAv: () => { const [x, y, w, h] = cardRect; return [x + w - 189.7 * k, y + h - 192.7 * k]; },
-    cardCloud: () => { const [x, y, w, h] = cardRect; return [x + w - 78 * k, y + h - 322 * k]; }
+    cardAv: () => { const [x, y, w, h] = cardRect; return gA([x + w - 189.7 * k, y + h - 192.7 * k], 262, 475); },
+    cardCloud: () => { const [x, y, w, h] = cardRect; return gC([x + w - 78 * k, y + h - 410 * k], 480, 260); }
   };
   for (const key of Object.keys(M)) { const desk = P[key]; P[key] = (...a) => mob ? M[key](...a) : desk(...a); }
 
@@ -68,12 +73,15 @@
       const left = Math.max(10, Math.min(W() - 10 - w, mid - half));
       anchor.style.transform = `translate(${mid}px, ${top}px)`;
       b.style.left = (left - mid) + 'px'; b.style.top = (-h - 22 * k) + 'px';
-      d1.style.left = (-5.5 * k) + 'px'; d1.style.top = (-18 * k) + 'px'; d2.style.left = (-2 * k) + 'px'; d2.style.top = (-8 * k) + 'px';
+      b.style.top = (-h - 30 * k) + 'px';
+      d1.style.left = (-5.5 * k) + 'px'; d1.style.top = (-25 * k) + 'px'; d2.style.left = (-2 * k) + 'px'; d2.style.top = (-10 * k) + 'px';
     } else if (bubbleSide === 'r') {
+      const k = s * 540 / 198;   // offsets follow the avatar's size
       anchor.style.transform = `translate(${ax + 192 * k}px, ${ay}px)`;
       b.style.left = '0'; b.style.top = (72 * k - h) + 'px';
       d1.style.left = (-9.3 * k) + 'px'; d1.style.top = (62 * k) + 'px'; d2.style.left = (-15.3 * k) + 'px'; d2.style.top = (73 * k) + 'px';
     } else {
+      const k = s * 540 / 198;
       anchor.style.transform = `translate(${ax - 5.5 * k}px, ${ay}px)`;
       b.style.left = (-w) + 'px'; b.style.top = (72 * k - h) + 'px';
       d1.style.left = (4 * k) + 'px'; d1.style.top = (64 * k) + 'px'; d2.style.left = (12 * k) + 'px'; d2.style.top = (75 * k) + 'px';
@@ -289,7 +297,7 @@
       if (nL && nO) stats.push(`<span title="${nL} layouts">${ICON.lay}${String(nL).padStart(2, '0')}</span>`, `<span title="${nO} objects">${ICON.obj}${String(nO).padStart(2, '0')}</span>`);
       else if (nL) stats.push(`<span>${ICON.lay}${plural(nL, 'layout')}</span>`);
       else if (nO) stats.push(`<span>${ICON.obj}${plural(nO, 'object')}</span>`);
-      if (p.year) stats.push(`<span>${ICON.yr}${p.year}</span>`);
+      if (p.year) stats.push(`<span class="yr">${ICON.yr}${p.year}</span>`);
       f.innerHTML = `<div class="hd"><span class="dot"></span><b></b>${ICON.go}</div>
         <div class="pic">${p.cover || cover ? `<img src="${p.cover || cover.src}" alt="" loading="lazy"${p.cover ? ' class="own"' : ''}>` : ''}</div><div class="ft"><div class="st">${stats.join('')}</div>${p.tags[0] ? '<span class="pill"></span>' : ''}</div>`;
       f.querySelector('b').textContent = p.name;
@@ -299,7 +307,9 @@
     });
     placeFoldersClose();
     folders.classList.add('open'); G() && G().pause(true);
-    teleport('avatar', P.folderAv, () => talk(`Choose the ${LABEL[openRegion] || openRegion} project`));
+    if (mob) { cc.all.s.t = 0; hush(); }   // phones: the cloud steps away so the cards get the room
+    teleport('avatar', P.folderAv, () => { const msg = `Choose the ${LABEL[openRegion] || openRegion} project`; talk(msg);
+      if (mob) setTimeout(() => { if (say.textContent === msg && screen === 'folders') hush(); }, 2500); });
   }
 
   /* card pictures: your own cover (p.cover) when there is one, otherwise the first picture of the case */
@@ -308,14 +318,25 @@
   function placeFoldersClose() {
     if (mob) {
       closeIcon($('closeFolders'), W() - 40 * k - 14, 14);
-      shelf.style.top = Math.max(60, P.cloud()[1] + 395 * cs) + "px";
-      shelf.style.bottom = (H() - (P.folderAv()[1] + 65 * s) + 70) + 'px';
+      shelf.style.top = (14 + 40 * k + 8) + 'px';   // no cloud on phones here: the cards get the room
+      const two = shelf.children.length > 1; shelf.classList.toggle('two', two); shelf.style.setProperty('--k', two ? .78 : '');   // two smaller cards a row; an odd last one sits in the middle
+      shelf.style.bottom = (H() - (P.folderAv()[1] + 65 * s) - 10) + 'px';
       shelf.style.paddingLeft = shelf.style.paddingRight = '14px';
-    } else { shelf.style.top = shelf.style.bottom = shelf.style.paddingLeft = shelf.style.paddingRight = ''; closeIcon($('closeFolders'), W() - 230 * k, 48 * k); }
+    } else {   // the x sits just right of the top-right card
+      shelf.classList.remove('two'); shelf.style.removeProperty('--k');
+      shelf.style.top = shelf.style.bottom = '';
+      const fs = [...shelf.children]; if (!fs.length) return;
+      // rows of three; four when there are exactly 4 or 7 cards
+      const cols = fs.length === 4 || fs.length === 7 ? 4 : 3, inner = cols * 268 * k + (cols - 1) * 26 * k + 2;
+      shelf.style.paddingLeft = shelf.style.paddingRight = Math.max(110 * k, (W() - inner) / 2) + 'px';
+      const top = Math.min(...fs.map(f => f.offsetTop)), right = Math.max(...fs.filter(f => f.offsetTop === top).map(f => f.offsetLeft + f.offsetWidth));
+      const r = shelf.getBoundingClientRect();
+      closeIcon($('closeFolders'), Math.min(W() - 52 * k, r.left + right + 14 * k), r.top + top - shelf.scrollTop);
+    }
   }
   function closeFolders() {
     folders.classList.remove('open'); screen = 'map'; cursorOn = true; hush(); G() && G().pause(false);
-    teleport('avatar', P.corner, clearZone);
+    teleport('avatar', P.corner, clearZone); if (mob) teleport('cloud', P.cloud);
   }
   let fromFolders = false;
   /* ---------- the viewer is built around the content: a board of draggable objects and columns of layouts ---------- */
@@ -403,7 +424,7 @@
     L.forEach(it => { const img = document.createElement('img'); img.src = it.src; img.alt = ''; img.loading = 'lazy'; img.className = it.a ? 'cut' : 'rect';
       img.style.aspectRatio = it.w + ' / ' + it.h; gallery.appendChild(img); });
     gallery.scrollTop = 0;
-    little(); card.querySelector('.info').style.paddingRight = Math.round(330 * s) + 'px';
+    little(); card.querySelector('.info').style.paddingRight = '';
     closeIcon($('closeViewer'), w - 40 * k - 18, 18);
   }
   /* ---------- Lola: the app screens play in a phone and the Lola marks in them come alive ---------- */
@@ -590,7 +611,7 @@
   function closeViewer() {
     stopStories(); if (demo) { const d = demo; demo = null; d.timers.forEach(clearTimeout); cancelAnimationFrame(d.raf); travel = null; setState(1); }
     viewer.classList.remove('open'); hush();
-    teleport('cloud', P.cloud);
+    if (!(mob && fromFolders)) teleport('cloud', P.cloud);
     if (!fromFolders) G() && G().pause(false);
     if (fromFolders) { const list = PROJECTS.filter(q => q.reg === openRegion); openFolders(list); }
     else { screen = 'map'; cursorOn = true; teleport('avatar', P.corner, clearZone); }
@@ -671,6 +692,7 @@
     dt = Math.min(2.5, (now - last) / 16.67); last = now; const t = now / 1000, a = reduce ? 0 : 1;
     if (travel) travel(now); else { vx *= .8; vy *= .8; }
     buddy.style.transform = `translate(${ax}px, ${ay}px)`;
+    if (!document.documentElement.classList.contains('ready')) requestAnimationFrame(() => document.documentElement.classList.add('ready'));   // shown only once they are in place
     cloud.style.transform = `translate(${cx}px, ${cy}px)`;
     if (bubble.classList.contains('in')) placeBubble();
     nameProject();
