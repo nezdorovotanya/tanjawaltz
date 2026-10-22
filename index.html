@@ -105,7 +105,7 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .info h2 { margin: 0; font: 600 calc(var(--k) * 23px)/1.1 var(--f); letter-spacing: -0.01em; background: linear-gradient(180deg, #000 30%, #6d7c8e); -webkit-background-clip: text; background-clip: text; color: transparent; text-wrap: balance; }
 .info p { margin: 0; font: 500 calc(var(--k) * 16px)/1.2 var(--f); color: var(--mute); }
 .tags { display: flex; flex-wrap: wrap; gap: calc(var(--k) * 5px) calc(var(--k) * 8px); margin-top: calc(var(--k) * 40px); }
-.tags span { height: calc(var(--k) * 40px); padding: 0 calc(var(--k) * 22px); border-radius: calc(var(--k) * 35px); background: linear-gradient(180deg, #f6f8fb, var(--chip-b)); box-shadow: inset 0 0 0 1.5px #fff; color: #66748a; font: 500 calc(var(--k) * 16px)/1 var(--f); display: inline-flex; align-items: center; }
+.tags span { height: calc(var(--k) * 40px); padding: 0 calc(var(--k) * 22px); border-radius: calc(var(--k) * 35px); background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 70%), var(--tag, var(--chip-b)); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .8), 0 1px 3px rgba(20, 34, 66, .08); color: #3b4558; font: 500 calc(var(--k) * 16px)/1 var(--f); display: inline-flex; align-items: center; }
 /* phone viewer: one vertical window, info left-aligned at the bottom */
 .card.m { display: flex; flex-direction: column; gap: 12px; padding: 10px; box-sizing: border-box; border-radius: 30px; }
 .card.m .gallery { position: static; flex: 1 1 auto; min-height: 0; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; border-radius: 22px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -117,8 +117,8 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .card.m .info { position: static; flex: 0 0 auto; gap: 3px; padding: 2px 8px 6px; text-align: left; }
 .card.m .info h2 { font-size: 20px; }
 .card.m .info p { font-size: 14px; }
-.card.m .tags { margin-top: 8px; gap: 6px; }
-.card.m .tags span { height: 28px; padding: 0 12px; font-size: 13px; }
+.card.m .tags { margin-top: 8px; gap: 5px; }
+.card.m .tags span { height: 26px; padding: 0 11px; font-size: 12.5px; }
 @media (prefers-reduced-motion: reduce) { .bubble.in, .bubble.in .b, .bubble.in .d1, .bubble.in .d2 { animation-duration: .01s; } .folder, .card, .layer { transition-duration: .01s; } }
 </style>
 

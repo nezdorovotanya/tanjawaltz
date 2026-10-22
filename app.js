@@ -15,7 +15,7 @@
     mob = innerWidth < 760 || innerWidth < innerHeight * .8;
     if (mob) {
       // a fifth of the screen each; half that on the project viewer, where the card needs the room
-      const va = innerHeight * (small ? .1 : .2), vc = innerHeight * (small ? .075 : .2);
+      const va = innerHeight * (small ? .15 : .2), vc = innerHeight * (small ? .075 : .2);
       F = Math.min(va * 540 / 410, innerWidth * .8); s = F / 540;
       CF = Math.min(vc * 540 / 300, innerWidth * .9); cs = CF / 540;
       r.setProperty('--av', F + 'px'); r.setProperty('--cl', CF + 'px');
@@ -31,11 +31,13 @@
   const safeT = () => 14, safeB = () => 18;
   const avTopToFrame = y => y - 65 * s, cloudBottom = () => cy + 400 * cs;
   const big = () => { if (small) { small = false; measure(); } }, little = () => { if (!small) { small = true; measure(); } };
-  // phone viewer card: full width, 70% of the screen tall, starting a tenth of the way down
-  const mobCard = () => [14, Math.round(H() * .1), W() - 28, Math.round(H() * .7)];
+  // phone viewer card: full width, from a tenth of the way down to 40px above the bottom (room for the home indicator)
+  const mobCard = () => { const t = Math.round(H() * .1); return [14, t, W() - 28, H() - 40 - t]; };
   const M = {
-    cardAv: () => { little(); const [x, y, w, h] = mobCard(); return [W() / 2 - 262 * s, y + h + 12 - 65 * s]; },
-    cardCloud: () => { little(); const y = mobCard()[1]; return [W() / 2 - 270 * cs, y / 2 - 255 * cs]; },
+    // avatar sits on the card's bottom-right corner, its lower part hanging over the edge
+    cardAv: () => { little(); const [x, y, w, h] = mobCard(); return [x + w - 150 * s - 262 * s, y + h + 115 * s - 475 * s]; },
+    // cloud sits on the card's top-left corner
+    cardCloud: () => { little(); const [x, y] = mobCard(); return [x + 150 * cs - 270 * cs, y + 35 * cs - 255 * cs]; },
     center: () => { big(); return [W() / 2 - 262 * s, H() * .58 - 270 * s]; },
     corner: () => { big(); return [W() / 2 - 262 * s, H() - safeB() - 475 * s]; },
     byCloud: () => { big(); return [W() / 2 - 262 * s, avTopToFrame(P.cloud()[1] + 400 * cs + 110)]; },
@@ -439,6 +441,7 @@
     L.forEach(it => { const img = document.createElement('img'); img.src = it.src; img.alt = ''; img.loading = 'lazy'; img.className = it.a ? 'cut' : 'rect';
       img.style.aspectRatio = it.w + ' / ' + it.h; gallery.appendChild(img); });
     gallery.scrollTop = 0;
+    little(); card.querySelector('.info').style.paddingRight = Math.round(330 * s) + 'px';
     closeIcon($('closeViewer'), w - 40 * k - 18, 18);
   }
   // shelf-pack the objects, shrinking until everything fits, then scatter them a little
@@ -489,12 +492,16 @@
   }
   const place = t => { t.style.transform = `translate(${t._x}px, ${t._y}px) rotate(${t._r}deg)`; };
 
+  // each tag keeps its own pastel everywhere on the site
+  const TAGC = ['#ffd9f3', '#e2dcff', '#ebffb5', '#ffe2c6', '#d6e4ff', '#c8f6e4', '#fff2b8', '#ffd6d6'];
+  const TAGFIX = { 'branding': 0, 'typography': 1, 'polygraphy': 2, 'events': 3, 'social media': 4, 'key-visual generation': 5, 'art direction': 6, 'visual concepts': 7, 'web design': 4 };
+  function tagColor(t) { if (t in TAGFIX) return TAGC[TAGFIX[t]]; let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TAGC[h % TAGC.length]; }
   function openViewer(p, viaFolders) {
     fromFolders = viaFolders; screen = 'viewer'; cursorOn = false; G() && G().stop(); hush(); current = p;
     if (viaFolders) folders.classList.remove('open');
     buildViewer(p);
     $('vName').textContent = p.name; $('vMeta').textContent = [p.company, p.year].filter(Boolean).join(', ');
-    $('vTags').innerHTML = ''; p.tags.forEach(t => { const sp = document.createElement('span'); sp.textContent = t; $('vTags').appendChild(sp); });
+    $('vTags').innerHTML = ''; p.tags.forEach(t => { const sp = document.createElement('span'); sp.textContent = t; sp.style.setProperty('--tag', tagColor(t)); $('vTags').appendChild(sp); });
     viewer.classList.add('open'); G() && G().pause(true);
     teleport('avatar', P.cardAv);
     teleport('cloud', P.cardCloud);
