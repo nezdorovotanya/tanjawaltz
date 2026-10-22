@@ -82,7 +82,8 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .folder:hover .go { transform: translate(2px, -2px); }
 .folder .pic { position: relative; width: 100%; aspect-ratio: 1; border-radius: calc(var(--k) * 22px); overflow: hidden; background: linear-gradient(180deg, var(--g1), var(--g2));
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .55), inset 0 -10px 24px rgba(20, 34, 66, .06); }
-.folder .pic canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.folder .pic img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .6s cubic-bezier(.25, 1, .4, 1); }
+.folder:hover .pic img { transform: scale(1.04); }
 .folder .ft { display: flex; justify-content: space-between; align-items: center; gap: calc(var(--k) * 6px); padding: 0 calc(var(--k) * 4px); font: 600 calc(var(--k) * 14px)/1 var(--f); white-space: nowrap; }
 .folder .ft .st { display: flex; gap: calc(var(--k) * 12px); min-width: 0; }
 .folder .ft .st span { display: inline-flex; align-items: center; gap: calc(var(--k) * 5px); }
@@ -109,6 +110,51 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .card.m .info .desc.open { -webkit-line-clamp: unset; display: block; }
 .tags { display: flex; flex-wrap: wrap; gap: calc(var(--k) * 5px) calc(var(--k) * 8px); margin-top: calc(var(--k) * 40px); }
 .tags span { height: calc(var(--k) * 40px); padding: 0 calc(var(--k) * 22px); border-radius: calc(var(--k) * 35px); background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 70%), var(--tag, var(--chip-b)); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .8), 0 1px 3px rgba(20, 34, 66, .08); color: #3b4558; font: 500 calc(var(--k) * 16px)/1 var(--f); display: inline-flex; align-items: center; }
+/* Lola phone animation */
+.phone.anim .scr { display: block; background: #fff; }
+.phone.anim .ls { position: absolute; inset: 0; opacity: 0; transform: translateY(4%) scale(.97); transition: opacity .6s ease, transform .7s cubic-bezier(.2, .9, .3, 1); }
+.phone.anim .ls.on { opacity: 1; transform: none; z-index: 2; }
+.phone.anim .ls.off { opacity: 0; transform: translateY(-3%) scale(.98); z-index: 1; }
+.phone.anim .ls > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.phone.anim .lm { position: absolute; aspect-ratio: 1; transform: translate(-50%, -50%); }
+.phone.anim .lm i { position: absolute; inset: 0; background: var(--c); transform: rotate(var(--r));
+  -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+.phone.anim .mk-s { --m: url(lola/mark-s.svg); } .phone.anim .mk-b { --m: url(lola/mark-b.svg); }
+/* the marks turn one petal at a time, with a little overshoot, like a tulip opening */
+.phone.anim .ls.on .lm i { animation: lola-tick 1.4s cubic-bezier(.5, -0.35, .25, 1.45) .5s infinite; }
+@keyframes lola-tick { 0% { transform: rotate(var(--r)); } 55%, 100% { transform: rotate(calc(var(--r) + var(--step))); } }
+/* the big mark in the assistant screen blooms in, then breathes while it turns */
+.phone.anim .ls.on .lm.hero { animation: lola-bloom 1s cubic-bezier(.3, 1.5, .5, 1) both, lola-breathe 2.8s ease-in-out 1s infinite; }
+@keyframes lola-bloom { from { transform: translate(-50%, -50%) scale(0) rotate(-240deg); } to { transform: translate(-50%, -50%) scale(1) rotate(0); } }
+@keyframes lola-breathe { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.14); } }
+@media (prefers-reduced-motion: reduce) { .phone.anim .lm i, .phone.anim .lm.hero { animation: none !important; } .phone.anim .ls { transition: opacity .2s; } }
+/* Instagram story phone */
+.gallery .stage { position: relative; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border-radius: calc(var(--k) * 30px);
+  background: radial-gradient(120% 90% at 50% 40%, #f6f8fb, #e3e9f1); }
+.phone .st-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.gallery .phone, .card.m .gallery .phone { container-type: size; position: relative; flex: 0 0 auto; background: #0b0b0d; border-radius: calc(var(--k) * 46px); padding: calc(var(--k) * 9px);
+  box-sizing: border-box; box-shadow: inset 0 0 0 2px #2a2c33, 0 18px 40px rgba(20, 34, 66, .25); }
+.phone .scr { position: relative; width: 100%; height: 100%; border-radius: 9.5cqw; overflow: hidden; background: #000; display: flex; flex-direction: column; }
+.phone .st-wrap { position: relative; margin-top: 7%; width: 100%; aspect-ratio: 9 / 16; flex: 0 0 auto; border-radius: 3cqw; overflow: hidden; touch-action: manipulation; user-select: none; }
+.phone .st-img { position: absolute; inset: 0; background: #f4f4f4 center / cover no-repeat; }
+.phone .st-img::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 24%; background: linear-gradient(180deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .18) 55%, transparent); }
+.phone .st-bars { position: absolute; left: 2.0cqw; right: 2.0cqw; top: 2.0cqw; display: flex; gap: 0.75cqw; z-index: 2; }
+.phone .st-bars i { flex: 1; height: 0.62cqw; border-radius: 0.5cqw; background: rgba(255, 255, 255, .45); overflow: hidden; }
+.phone .st-bars b { display: block; height: 100%; background: #fff; transform-origin: 0 50%; transform: scaleX(0); }
+.phone .st-head { position: absolute; left: 2.5cqw; right: 2.0cqw; top: 4.5cqw; display: flex; align-items: center; gap: 1.75cqw; z-index: 2; color: #fff;
+  font: 600 3.25cqw/1 var(--f); text-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
+.phone .st-av { width: 7.0cqw; height: 7.0cqw; border-radius: 50%; display: grid; place-items: center; font: 700 2.75cqw/1 var(--f); color: #13112f; text-shadow: none;
+  background: #f4f4f4; box-shadow: 0 0 0 0.5cqw #ff3cac, 0 0 0 0.9cqw #fff; }
+.phone .st-time { opacity: .7; font-weight: 500; }
+.phone .st-sp { flex: 1; }
+.phone .st-ic { width: 5.0cqw; height: 5.0cqw; fill: currentColor; flex: 0 0 auto; }
+.phone .st-head .st-ic { color: #fff; filter: drop-shadow(0 1px 0.75cqw rgba(0, 0, 0, .3)); }
+.phone .st-tap { position: absolute; top: 0; bottom: 0; border: 0; background: transparent; cursor: pointer; z-index: 1; padding: 0; }
+.phone .st-prev { left: 0; width: 34%; cursor: w-resize; } .phone .st-next { right: 0; width: 66%; cursor: e-resize; }
+.phone .st-foot { flex: 1; display: flex; align-items: center; gap: 3.0cqw; padding: 0 3.0cqw; color: #fff; }
+.phone .st-foot .st-ic { width: 6.0cqw; height: 6.0cqw; fill: none; }
+.phone .st-msg { flex: 1; border: 1px solid rgba(255, 255, 255, .45); border-radius: 24.75cqw; padding: 2.25cqw 3.5cqw; font: 500 3.25cqw/1 var(--f); color: rgba(255, 255, 255, .85); }
+@media (prefers-reduced-motion: reduce) { .phone .st-bars b { transition: none; } }
 /* phone viewer: one vertical window, info left-aligned at the bottom */
 .card.m { display: flex; flex-direction: column; gap: 12px; padding: 10px; box-sizing: border-box; border-radius: 30px; }
 .card.m .gallery { position: static; flex: 1 1 auto; min-height: 0; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; border-radius: 22px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }

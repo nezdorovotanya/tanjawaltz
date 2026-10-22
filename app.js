@@ -277,7 +277,6 @@
 
   function openFolders(list) {
     screen = 'folders'; cursorOn = false; G() && G().stop(); hush();
-    dotCards.forEach(d => dotObserver.unobserve(d.cv)); dotCards.length = 0;
     shelf.innerHTML = '';
     list.forEach((p, i) => {
       const pal = palFor(i);
@@ -285,99 +284,26 @@
       for (const key of ['fr', 'g1', 'g2', 'pill', 'pt']) f.style.setProperty('--' + key, pal[key]);
       f.setAttribute('aria-label', p.name);
       const cover = [...p.items.filter(i => i.c === 'L'), ...p.items.filter(i => i.c !== 'L' && (!i.sheet || i.keep))][0];
-      const nL = p.items.filter(i => i.c === 'L').length, nO = p.items.length - nL;
+      const nL = p.items.filter(i => i.c === 'L' || i.c === 'S' || i.c === 'A').length, nO = p.items.length - nL;
       const stats = [];
       if (nL && nO) stats.push(`<span title="${nL} layouts">${ICON.lay}${String(nL).padStart(2, '0')}</span>`, `<span title="${nO} objects">${ICON.obj}${String(nO).padStart(2, '0')}</span>`);
       else if (nL) stats.push(`<span>${ICON.lay}${plural(nL, 'layout')}</span>`);
       else if (nO) stats.push(`<span>${ICON.obj}${plural(nO, 'object')}</span>`);
       if (p.year) stats.push(`<span>${ICON.yr}${p.year}</span>`);
       f.innerHTML = `<div class="hd"><span class="dot"></span><b></b>${ICON.go}</div>
-        <div class="pic"><canvas></canvas></div><div class="ft"><div class="st">${stats.join('')}</div>${p.tags[0] ? '<span class="pill"></span>' : ''}</div>`;
+        <div class="pic">${p.cover || cover ? `<img src="${p.cover || cover.src}" alt="" loading="lazy"${p.cover ? ' class="own"' : ''}>` : ''}</div><div class="ft"><div class="st">${stats.join('')}</div>${p.tags[0] ? '<span class="pill"></span>' : ''}</div>`;
       f.querySelector('b').textContent = p.name;
       if (p.tags[0]) f.querySelector('.pill').textContent = p.tags[0];
       f.addEventListener('click', e => { e.stopPropagation(); openViewer(p, true); });
       shelf.appendChild(f);
-      const d = { cv: f.querySelector('canvas'), pal, cells: null, mx: -1e4, my: -1e4, hot: 0 };
-      dotCards.push(d); dotObserver.observe(d.cv);
-      if (cover) sampleCover(cover, d); else d.cells = 'none';
-      f.addEventListener('pointermove', e => { const r = d.cv.getBoundingClientRect(); d.mx = e.clientX - r.left; d.my = e.clientY - r.top; wakeDots(); });
-      f.addEventListener('pointerleave', () => { d.mx = d.my = -1e4; wakeDots(); });
     });
     placeFoldersClose();
     folders.classList.add('open'); G() && G().pause(true);
     teleport('avatar', P.folderAv, () => talk(`Choose the ${LABEL[openRegion] || openRegion} project`));
   }
 
-  /* ---------- the card pictures: the cover turned into a grid of dots, like the project map ---------- */
-  const N = 22;                 // dots per side
-  const dotCards = [];
-  const dotObserver = new ResizeObserver(() => dotCards.forEach(d => drawDots(d)));
-  // the cover, sampled into N x N values in 0..1 (0 = no dot)
-  function sampleCover(it, d) {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas'); c.width = c.height = N;
-      const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingQuality = 'high';
-      const iw = img.naturalWidth, ih = img.naturalHeight;
-      if (it.a) { const sc = Math.min(N * .86 / iw, N * .86 / ih); x.drawImage(img, (N - iw * sc) / 2, (N - ih * sc) / 2, iw * sc, ih * sc); }
-      else { const sc = Math.max(N / iw, N / ih); x.drawImage(img, (N - iw * sc) / 2, (N - ih * sc) / 2, iw * sc, ih * sc); }
-      const px = x.getImageData(0, 0, N, N).data, lum = [], al = [];
-      for (let i = 0; i < N * N; i++) { lum.push((px[i * 4] * .3 + px[i * 4 + 1] * .59 + px[i * 4 + 2] * .11) / 255); al.push(px[i * 4 + 3] / 255); }
-      let v;
-      if (it.a) v = al.map((a, i) => a * (.55 + .45 * (1 - lum[i])));
-      else {
-        // the less common tone of the picture becomes the dots
-        const mean = lum.reduce((s, l) => s + l, 0) / lum.length;
-        v = lum.map(l => mean > .5 ? 1 - l : l);
-        const sorted = [...v].sort((p, q) => p - q), lo = sorted[Math.floor(N * N * .3)], hi = sorted[Math.floor(N * N * .97)] || 1;
-        v = v.map(t => Math.max(0, Math.min(1, (t - lo) / Math.max(.2, hi - lo))));
-      }
-      // grow shapes into soft blobs: every cell takes some of its strongest neighbours
-      const g = (i, j) => (i < 0 || j < 0 || i >= N || j >= N) ? 0 : v[j * N + i];
-      v = v.map((t, n) => { const i = n % N, j = (n / N) | 0; let mx = 0, sum = 0;
-        for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const q = g(i + di, j + dj); sum += q; if (q > mx) mx = q; }
-        return Math.max(t, mx * .78, sum / 9 * 1.25); });
-      // levels follow the picture itself: the weakest ~40% of cells stay empty, the rest split into four sizes
-      const q = [...v].sort((a, b) => a - b), at = f => q[Math.min(q.length - 1, Math.floor(q.length * f))];
-      const t0 = Math.max(at(.4), .06), lv = [t0, at(.58), at(.74), at(.88)];
-      d.cells = v.map(t => t <= t0 ? 0 : t <= lv[1] ? 1 : t <= lv[2] ? 2 : t <= lv[3] ? 3 : 4);
-      d.star = d.cells.map((q, i) => q === 2 && ((i * 2654435761) >>> 0) % 9 === 0);
-      wakeDots();
-    };
-    img.src = it.src;
-  }
-  const SIZE = [0, .42, .62, .8, .96];
-  function drawDots(d) {
-    const cv = d.cv, w = cv.clientWidth, h = cv.clientHeight; if (!w || !d.cells) return;
-    const dpr = Math.min(2, devicePixelRatio || 1);
-    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
-    const x = cv.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
-    if (d.cells === 'none') return;
-    const pad = w * .05, step = (w - pad * 2) / N; x.fillStyle = d.pal.dot;
-    let moving = false;
-    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-      const n = j * N + i, q = d.cells[n]; if (!q) continue;
-      const cx = pad + (i + .5) * step, cy = pad + (j + .5) * step;
-      // dots swell under the cursor
-      const dist = Math.hypot(cx - d.mx, cy - d.my), boost = Math.max(0, 1 - dist / (w * .28));
-      const target = Math.min(1.15, SIZE[q] + boost * .45);
-      d.sz = d.sz || new Float32Array(N * N);
-      d.sz[n] += (target - (d.sz[n] || 0)) * .22; if (Math.abs(target - d.sz[n]) > .005) moving = true;
-      const r = d.sz[n] * step / 2;
-      if (d.star[n] && boost < .2) { // four-pointed sparkle
-        x.beginPath(); x.moveTo(cx, cy - r * 1.25); x.quadraticCurveTo(cx, cy, cx + r * 1.25, cy); x.quadraticCurveTo(cx, cy, cx, cy + r * 1.25);
-        x.quadraticCurveTo(cx, cy, cx - r * 1.25, cy); x.quadraticCurveTo(cx, cy, cx, cy - r * 1.25); x.fill();
-      } else { x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill(); }
-    }
-    return moving;
-  }
-  // animate only while some dots are still easing
-  let dotRaf = 0;
-  function wakeDots() {
-    if (dotRaf) return;
-    const tick = () => { let any = false; dotCards.forEach(d => { if (drawDots(d)) any = true; }); dotRaf = any && screen === 'folders' ? requestAnimationFrame(tick) : 0; };
-    dotRaf = requestAnimationFrame(tick);
-  }
+  /* card pictures: your own cover (p.cover) when there is one, otherwise the first picture of the case */
+
   // the x sits in the top-right corner, left of the cloud
   function placeFoldersClose() {
     if (mob) {
@@ -395,22 +321,26 @@
   /* ---------- the viewer is built around the content: a board of draggable objects and columns of layouts ---------- */
   let current = null;
   function buildViewer(p) {
+    stopStories();
     card.classList.toggle('m', mob);
     if (mob) return buildViewerPhone(p);
     gallery.style.cssText = ''; card.querySelector('.info').style.cssText = '';
     const Hc = H() - 48 * k, pad = 12 * k, gap = 12 * k, Hi = Hc - 2 * pad;
-    const L = p.items.filter(i => i.c === 'L'), B = p.items.filter(i => i.c !== 'L');
+    const L = p.items.filter(i => i.c === 'L'), B = p.items.filter(i => i.c !== 'L' && i.c !== 'S' && i.c !== 'A'), S = p.items.filter(i => i.c === 'S'), A = p.items.filter(i => i.c === 'A');
     // a layout can name its column (col: 'tall' | 'wide'); otherwise its shape decides
     const isTall = i => i.col ? i.col === 'tall' : i.h / i.w >= .95;
     const tall = L.filter(isTall), wide = L.filter(i => !isTall(i));
     const panels = [];
+    // stories play in a phone the height of the viewer
+    if (S.length) panels.push({ type: 'phone', items: S, w: Math.round(Hi * .462) });
+    if (A.length) panels.push({ type: 'phone', items: A, w: Math.round(Hi * .462) });
     if (B.length) {
       let bw;
       if (p.native) { const area = B.reduce((s, i) => s + (i.w / 2 * k) * (i.h / 2 * k), 0); bw = Math.max(500 * k, Math.min(1100 * k, area * 2.1 / Hi)); }
       else bw = (B.length <= 2 ? 500 : B.length <= 8 ? 610 : B.length <= 20 ? 730 : 860) * k;
       panels.push({ type: 'board', items: B, w: bw });
     }
-    if (wide.length) panels.push({ type: 'col', items: wide, w: (tall.length ? 720 : 820) * k });
+    if (wide.length) panels.push({ type: 'col', items: wide, w: (p.wideW || (tall.length ? 720 : 820)) * k });   // a case can ask for a wider column (wideW)
     if (tall.length) panels.push({ type: 'col', items: tall, w: (B.length || wide.length ? 470 : 540) * k });
     // when the case says where its columns go, keep the order it lists them in (posts first for Nechpul)
     if (L.some(i => i.col) && tall.length && wide.length && p.items.indexOf(tall[0]) < p.items.indexOf(wide[0])) {
@@ -420,7 +350,9 @@
     const infoW = 295 * k;
     let sum = panels.reduce((s, q) => s + q.w, 0) + gap * Math.max(0, panels.length - 1);
     const room = W() - 48 * k - pad - infoW;
-    if (sum > room) { const f = room / sum; panels.forEach(q => q.w *= f); sum = room; }
+    if (sum > room) {   // phones keep their shape; the other panels give up the space
+      const fixed = panels.filter(q => q.type === 'phone').reduce((s, q) => s + q.w, 0);
+      const f = Math.max(.2, (room - fixed) / (sum - fixed)); panels.forEach(q => { if (q.type !== 'phone') q.w *= f; }); sum = room; }
     const w = pad + sum + infoW, h = Hc;
     cardRect = [(W() - w) / 2, (H() - h) / 2, w, h];
     Object.assign(card.style, { left: cardRect[0] + 'px', top: cardRect[1] + 'px', width: w + 'px', height: h + 'px' });
@@ -429,6 +361,8 @@
       const el = document.createElement('div'); el.className = q.type; el.style.width = q.w + 'px'; el.style.height = Hi + 'px'; gallery.appendChild(el);
       if (q.type === 'col') q.items.forEach(it => { const img = document.createElement('img'); img.src = it.src; img.alt = ''; img.loading = 'lazy'; img.className = it.a ? 'cut' : 'rect';
         img.style.aspectRatio = it.w + ' / ' + it.h; el.appendChild(img); });
+      else if (q.type === 'phone' && q.items[0].c === 'A') makeAnim(el, q.items[0]);
+      else if (q.type === 'phone') { const ph = Math.round(Hi * .462); if (q.w > ph + 1) { el.className = 'stage'; const f = document.createElement('div'); f.className = 'phone'; f.style.width = ph + 'px'; f.style.height = Hi + 'px'; el.appendChild(f); makeStories(f, q.items, p.story); } else makeStories(el, q.items, p.story); }
       else fillBoard(el, q.items, q.w, Hi, p.native);
     });
     const info = card.querySelector('.info'); Object.assign(info.style, { left: (w - infoW + 22 * k) + 'px', top: 17 * k + 'px', width: (infoW - 80 * k) + 'px' });
@@ -439,7 +373,11 @@
     const [x, y, w, h] = cardRect = mobCard();
     Object.assign(card.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
     gallery.innerHTML = ''; gallery.style.cssText = ''; card.querySelector('.info').style.cssText = '';
-    const iw = w - 20, B = p.items.filter(i => i.c !== 'L'), L = p.items.filter(i => i.c === 'L');
+    const iw = w - 20, B = p.items.filter(i => i.c !== 'L' && i.c !== 'S' && i.c !== 'A'), L = p.items.filter(i => i.c === 'L'), S = p.items.filter(i => i.c === 'S'), A = p.items.filter(i => i.c === 'A');
+    if (A.length) { const pw = Math.min(iw, Math.round((h - 20 - 190) * .462)); const el = document.createElement('div'); el.className = 'phone'; Object.assign(el.style, { width: pw + 'px', height: Math.round(pw / .462) + 'px', flex: '0 0 auto', alignSelf: 'center' }); gallery.appendChild(el); makeAnim(el, A[0]); }
+    if (S.length) {   // the phone fits the window on its own, leaving room for the project info below
+      const ph = Math.min(Math.round(iw / .462), h - 20 - 190), pw = Math.round(ph * .462);
+      const el = document.createElement('div'); el.className = 'phone'; Object.assign(el.style, { width: pw + 'px', height: ph + 'px', flex: '0 0 auto', alignSelf: 'center' }); gallery.appendChild(el); makeStories(el, S, p.story); }
     if (B.length) {
       const bh = Math.round(iw * (B.length > 12 ? 1.35 : B.length > 4 ? 1.1 : .9));
       const el = document.createElement('div'); el.className = 'board'; el.style.width = iw + 'px'; el.style.height = bh + 'px'; gallery.appendChild(el);
@@ -451,6 +389,57 @@
     little(); card.querySelector('.info').style.paddingRight = Math.round(330 * s) + 'px';
     closeIcon($('closeViewer'), w - 40 * k - 18, 18);
   }
+  /* ---------- Lola: the app screens play in a phone and the Lola marks in them come alive ---------- */
+  function makeAnim(el, it) {
+    el.classList.add('anim');
+    el.innerHTML = `<div class="scr">${it.screens.map((src, i) => `<div class="ls${i ? '' : ' on'}"><img src="${src}" alt="">${it.marks.filter(m => m.s === i).map(m =>
+      `<span class="lm${m.hero ? ' hero' : ''}" style="left:${m.x}%;top:${m.y}%;width:${m.w}%;--r:${m.r}deg;--c:${m.c};--step:${m.k === 's' ? 72 : 60}deg"><i class="mk-${m.k}"></i></span>`).join('')}</div>`).join('')}</div>`;
+    const screens = [...el.querySelectorAll('.ls')];
+    let i = 0;
+    const step = () => {
+      if (!el.isConnected) return;
+      screens[i].classList.remove('on'); screens[i].classList.add('off');
+      const prev = screens[i]; setTimeout(() => prev.classList.remove('off'), 700);
+      i = (i + 1) % screens.length; screens[i].classList.add('on');
+      setTimeout(step, i === 1 ? 4200 : 3400);
+    };
+    setTimeout(step, 3400);
+  }
+
+  /* ---------- Instagram story player: a phone that plays the case's stories like the real app ---------- */
+  let storyRaf = 0;
+  function stopStories() { cancelAnimationFrame(storyRaf); storyRaf = 0; }
+  const DUR = 5000;
+  function makeStories(el, items, who = {}) {
+    el.innerHTML = `<div class="scr"><div class="st-wrap"><div class="st-img"></div>
+        <div class="st-bars">${items.map(() => '<i><b></b></i>').join('')}</div>
+        <div class="st-head"><span class="st-av">${who.avatar ? `<img src="${who.avatar}" alt="">` : ''}</span><span class="st-name">${who.name || 'story'}</span><span class="st-time">2h</span>
+          <span class="st-sp"></span><svg viewBox="0 0 24 24" class="st-ic"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          <svg viewBox="0 0 24 24" class="st-ic" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+        <button class="st-tap st-prev" aria-label="Previous story"></button><button class="st-tap st-next" aria-label="Next story"></button></div>
+      <div class="st-foot"><span class="st-msg">Send message</span>
+        <svg viewBox="0 0 24 24" class="st-ic" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg>
+        <svg viewBox="0 0 24 24" class="st-ic" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></svg></div></div>`;
+    const img = el.querySelector('.st-img'), bars = [...el.querySelectorAll('.st-bars b')];
+    items.forEach(it => { const im = new Image(); im.src = it.src; });   // warm the cache
+    let i = 0, t0 = performance.now(), held = false, heldAt = 0;
+    const show = n => { i = (n + items.length) % items.length; t0 = performance.now(); img.style.backgroundImage = `url(${items[i].src})`;
+      bars.forEach((b, k) => b.style.transform = `scaleX(${k < i ? 1 : 0})`); };
+    const tick = now => {
+      if (!el.isConnected) { storyRaf = 0; return; }
+      if (held) t0 += now - heldAt, heldAt = now;
+      const q = Math.min(1, (now - t0) / DUR); bars[i].style.transform = `scaleX(${q})`;
+      if (q >= 1) show(i + 1);
+      storyRaf = requestAnimationFrame(tick);
+    };
+    const wrap = el.querySelector('.st-wrap');
+    wrap.addEventListener('pointerdown', e => { held = true; heldAt = performance.now(); e.stopPropagation(); });
+    addEventListener('pointerup', () => { held = false; });
+    el.querySelector('.st-prev').addEventListener('click', e => { e.stopPropagation(); hush(); show(i - 1); });
+    el.querySelector('.st-next').addEventListener('click', e => { e.stopPropagation(); hush(); show(i + 1); });
+    show(0); stopStories(); storyRaf = requestAnimationFrame(tick);
+  }
+
   // shelf-pack the objects, shrinking until everything fits, then scatter them a little
   function fillBoard(el, items, bw, bh, native) {
     const m = 18 * k, g = 14 * k;
@@ -501,7 +490,7 @@
 
   // each tag keeps its own pastel everywhere on the site
   const TAGC = ['#ffd9f3', '#e2dcff', '#ebffb5', '#ffe2c6', '#d6e4ff', '#c8f6e4', '#fff2b8', '#ffd6d6'];
-  const TAGFIX = { 'branding': 0, 'typography': 1, 'polygraphy': 2, 'events': 3, 'social media': 4, 'key-visual generation': 5, 'art direction': 6, 'visual concepts': 7, 'web design': 4, 'guides': 1 };
+  const TAGFIX = { 'branding': 0, 'typography': 1, 'polygraphy': 2, 'events': 3, 'social media': 4, 'key-visual generation': 5, 'art direction': 6, 'visual concepts': 7, 'web design': 4, 'guides': 1, 'concepting': 7 };
   function tagColor(t) { if (t in TAGFIX) return TAGC[TAGFIX[t]]; let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TAGC[h % TAGC.length]; }
   function openViewer(p, viaFolders) {
     fromFolders = viaFolders; screen = 'viewer'; cursorOn = false; G() && G().stop(); hush(); current = p;
@@ -511,10 +500,15 @@
     $('vDesc').textContent = p.desc || ''; $('vDesc').hidden = !p.desc; $('vDesc').classList.remove('open');
     $('vTags').innerHTML = ''; p.tags.forEach(t => { const sp = document.createElement('span'); sp.textContent = t; sp.style.setProperty('--tag', tagColor(t)); $('vTags').appendChild(sp); });
     viewer.classList.add('open'); G() && G().pause(true);
-    teleport('avatar', P.cardAv);
+    // cases with stories: the avatar points the visitor at the phone
+    const hasStories = p.items.some(i => i.c === 'S');
+    teleport('avatar', P.cardAv, () => { if (hasStories && screen === 'viewer' && current === p) { const msg = (mob ? 'Tap' : 'Click') + ' on the phone to watch\nthe Instagram story';
+      talk(msg, 'r');
+      setTimeout(() => { if (say.textContent === msg) hush(); }, 3500); } });
     teleport('cloud', P.cardCloud);
   }
   function closeViewer() {
+    stopStories();
     viewer.classList.remove('open'); hush();
     teleport('cloud', P.cloud);
     if (!fromFolders) G() && G().pause(false);
