@@ -99,6 +99,9 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .gallery .col img { width: 100%; height: auto; display: block; flex: 0 0 auto; }
 .gallery img.rect { border-radius: calc(var(--k) * 30px); }
 .gallery .board { position: relative; background: linear-gradient(180deg, #f1f4f8, #e8edf4); border-radius: calc(var(--k) * 30px); overflow: hidden; flex: 0 0 auto; touch-action: none; }
+.gallery .kboard { position: relative; flex: 0 0 auto; border-radius: calc(var(--k) * 30px); overflow: hidden; touch-action: none; }
+.card.m .gallery .kboard { border-radius: 18px; touch-action: pan-y; background: linear-gradient(180deg, #f1f4f9, #e9eef6); }
+.gallery .kbg { position: absolute; background: center / 100% 100% no-repeat; }
 .gallery .bi { position: absolute; left: 0; top: 0; cursor: grab; user-select: none; -webkit-user-drag: none; transition: filter .2s; }
 .gallery .bi.rect { border-radius: calc(var(--k) * 20px); }
 .gallery .bi.drag { cursor: grabbing; filter: drop-shadow(0 14px 18px rgba(11, 23, 50, .22)); }

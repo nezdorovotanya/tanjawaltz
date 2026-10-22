@@ -284,7 +284,7 @@
       for (const key of ['fr', 'g1', 'g2', 'pill', 'pt']) f.style.setProperty('--' + key, pal[key]);
       f.setAttribute('aria-label', p.name);
       const cover = [...p.items.filter(i => i.c === 'L'), ...p.items.filter(i => i.c !== 'L' && (!i.sheet || i.keep))][0];
-      const nL = p.items.filter(i => i.c === 'L' || i.c === 'S' || i.c === 'A').length, nO = p.items.length - nL;
+      const nL = p.items.filter(i => i.c === 'L' || i.c === 'S' || i.c === 'A').length, nO = p.items.reduce((n, i) => n + (i.c === 'K' ? i.stickers.length : 1), 0) - nL;
       const stats = [];
       if (nL && nO) stats.push(`<span title="${nL} layouts">${ICON.lay}${String(nL).padStart(2, '0')}</span>`, `<span title="${nO} objects">${ICON.obj}${String(nO).padStart(2, '0')}</span>`);
       else if (nL) stats.push(`<span>${ICON.lay}${plural(nL, 'layout')}</span>`);
@@ -325,8 +325,23 @@
     card.classList.toggle('m', mob);
     if (mob) return buildViewerPhone(p);
     gallery.style.cssText = ''; card.querySelector('.info').style.cssText = '';
-    const Hc = H() - 48 * k, pad = 12 * k, gap = 12 * k, Hi = Hc - 2 * pad;
-    const L = p.items.filter(i => i.c === 'L'), B = p.items.filter(i => i.c !== 'L' && i.c !== 'S' && i.c !== 'A'), S = p.items.filter(i => i.c === 'S'), A = p.items.filter(i => i.c === 'A');
+    let Hc = H() - 48 * k; const pad = 12 * k, gap = 12 * k; let Hi = Hc - 2 * pad;
+    const K = p.items.find(i => i.c === 'K');
+    if (K) {   // a sticker board: the frame keeps its proportions and the card hugs it
+      const infoW = 295 * k, room = W() - 48 * k - pad - infoW;
+      let bw = Math.min(room, Hi * K.w / K.h), bh = bw * K.h / K.w;
+      Hc = bh + 2 * pad; Hi = bh;
+      const w = pad + bw + infoW;
+      cardRect = [(W() - w) / 2, (H() - Hc) / 2, w, Hc];
+      Object.assign(card.style, { left: cardRect[0] + 'px', top: cardRect[1] + 'px', width: w + 'px', height: Hc + 'px' });
+      gallery.innerHTML = ''; Object.assign(gallery.style, { left: pad + 'px', top: pad + 'px', width: bw + 'px', height: bh + 'px' });
+      const el = document.createElement('div'); el.className = 'kboard'; el.style.width = bw + 'px'; el.style.height = bh + 'px'; gallery.appendChild(el);
+      makeKBoard(el, K, bw, bh);
+      const info = card.querySelector('.info'); Object.assign(info.style, { left: (w - infoW + 22 * k) + 'px', top: 17 * k + 'px', width: (infoW - 80 * k) + 'px' });
+      closeIcon($('closeViewer'), w - 56 * k, 17 * k);
+      return;
+    }
+    const L = p.items.filter(i => i.c === 'L'), B = p.items.filter(i => i.c !== 'L' && i.c !== 'S' && i.c !== 'A' && i.c !== 'K'), S = p.items.filter(i => i.c === 'S'), A = p.items.filter(i => i.c === 'A');
     // a layout can name its column (col: 'tall' | 'wide'); otherwise its shape decides
     const isTall = i => i.col ? i.col === 'tall' : i.h / i.w >= .95;
     const tall = L.filter(isTall), wide = L.filter(i => !isTall(i));
@@ -373,8 +388,10 @@
     const [x, y, w, h] = cardRect = mobCard();
     Object.assign(card.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
     gallery.innerHTML = ''; gallery.style.cssText = ''; card.querySelector('.info').style.cssText = '';
-    const iw = w - 20, B = p.items.filter(i => i.c !== 'L' && i.c !== 'S' && i.c !== 'A'), L = p.items.filter(i => i.c === 'L'), S = p.items.filter(i => i.c === 'S'), A = p.items.filter(i => i.c === 'A');
+    const iw = w - 20, B = p.items.filter(i => i.c !== 'L' && i.c !== 'S' && i.c !== 'A' && i.c !== 'K'), L = p.items.filter(i => i.c === 'L'), S = p.items.filter(i => i.c === 'S'), A = p.items.filter(i => i.c === 'A');
     if (A.length) { const pw = Math.min(iw, Math.round((h - 20 - 190) * .462)); const el = document.createElement('div'); el.className = 'phone'; Object.assign(el.style, { width: pw + 'px', height: Math.round(pw / .462) + 'px', flex: '0 0 auto', alignSelf: 'center' }); gallery.appendChild(el); makeAnim(el, A[0]); }
+    const K = p.items.find(i => i.c === 'K');
+    if (K) { const img = document.createElement('img'); img.src = K.sheet; img.alt = ''; img.className = 'rect'; img.style.aspectRatio = '986 / 1400'; gallery.appendChild(img); }   // phones just get the sticker sheet
     if (S.length) {   // the phone fits the window on its own, leaving room for the project info below
       const ph = Math.min(Math.round(iw / .462), h - 20 - 190), pw = Math.round(ph * .462);
       const el = document.createElement('div'); el.className = 'phone'; Object.assign(el.style, { width: pw + 'px', height: ph + 'px', flex: '0 0 auto', alignSelf: 'center' }); gallery.appendChild(el); makeStories(el, S, p.story); }
@@ -477,16 +494,78 @@
       });
       y += r.h + g;
     });
-    // drag
+    draggable(el, bw, bh);
+  }
+  function draggable(el, bw, bh) {
     let drag = null, top = 1000;
-    el.onpointerdown = e => { const t = e.target.closest('.bi'); if (!t) return; e.preventDefault(); t.setPointerCapture(e.pointerId); t.style.zIndex = ++top; t.classList.add('drag');
+    el.onpointerdown = e => { const t = e.target.closest('.bi'); if (!t) return; e.preventDefault(); stopDemo(); t.setPointerCapture(e.pointerId); t.style.zIndex = ++top; t.classList.add('drag');
       drag = { t, dx: e.clientX - t._x, dy: e.clientY - t._y, lx: e.clientX }; };
     el.onpointermove = e => { if (!drag) return; const t = drag.t;
       t._x = Math.max(-t.offsetWidth * .5, Math.min(bw - t.offsetWidth * .5, e.clientX - drag.dx)); t._y = Math.max(-t.offsetHeight * .5, Math.min(bh - t.offsetHeight * .5, e.clientY - drag.dy));
-      t._r = Math.max(-14, Math.min(14, t._r + (e.clientX - drag.lx) * .15)); drag.lx = e.clientX; place(t); };
+      if (!el._still) t._r = Math.max(-14, Math.min(14, t._r + (e.clientX - drag.lx) * .15)); drag.lx = e.clientX; place(t); };
     el.onpointerup = el.onpointercancel = () => { if (drag) drag.t.classList.remove('drag'); drag = null; };
+    el._top = () => ++top;
   }
-  const place = t => { t.style.transform = `translate(${t._x}px, ${t._y}px) rotate(${t._r}deg)`; };
+  const place = t => { t.style.transform = `translate(${t._x}px, ${t._y}px) rotate(${t._r}deg) scale(${t._s || 1})`; };
+
+  /* ---------- sticker board: the stickers sit where the frame has them and can be stuck anywhere on the macbook ---------- */
+  function makeKBoard(el, K, bw, bh, stack) {
+    const f = bw / (stack ? K.mac : K.w);
+    const bg = document.createElement('div'); bg.className = 'kbg'; bg.style.backgroundImage = `url(${K.bg})`;
+    Object.assign(bg.style, stack ? { width: K.mac * f + 'px', height: K.h * f + 'px', left: 0, top: 0, backgroundSize: `${K.w * f}px ${K.h * f}px`, backgroundPosition: '0 0' }
+      : { width: bw + 'px', height: bh + 'px', left: 0, top: 0 });
+    el.appendChild(bg);
+    K.stickers.forEach((st, i) => {
+      const img = document.createElement('img'); img.src = st.src; img.alt = ''; img.draggable = false; img.className = 'bi cut';
+      const w = st.w * f, h = st.h * f; let cx = (st.x + st.w / 2) * f, cy = (st.y + st.h / 2) * f;
+      if (stack) { cx += (bw - (K.pile[0] + K.pile[2]) * f) / 2; cy += (K.h - K.pile[1]) * f + 7; }   // the pile moves under the macbook
+      Object.assign(img.style, { width: w + 'px', height: h + 'px', zIndex: i + 1 });
+      img._x = cx - w / 2; img._y = cy - h / 2; img._r = 0; place(img); el.appendChild(img);
+    });
+    el._still = true; draggable(el, bw, bh);
+  }
+  // the avatar shows how it works: walks over, takes a sticker and sticks it on the macbook
+  let demo = null;
+  function stopDemo() { if (!demo) return; const d = demo; demo = null; d.timers.forEach(clearTimeout); cancelAnimationFrame(d.raf);
+    if (d.t) { d.t.classList.remove('drag'); d.t._s = 1; place(d.t); } travel = null; setState(1);
+    if (screen === 'viewer') teleport('avatar', P.cardAv); }
+  function stickerDemo(p) {
+    const el = gallery.querySelector('.kboard'); if (!el || mob || reduce) return;
+    const kids = [...el.querySelectorAll('.bi')], t = kids[4] || kids[0];   // "happy and it's good"
+    const d = demo = { timers: [], raf: 0, t: null };
+    const wait = (ms, fn) => d.timers.push(setTimeout(() => { if (demo === d && screen === 'viewer' && current === p) fn(); }, ms));
+    const handAt = () => { const r = A.handL.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height * .35]; };
+    const HX = 112, HY = 262;   // where the raised left hand sits in avatar units
+    wait(900, () => {
+      setState(5);
+      const r = t.getBoundingClientRect();
+      flyTo(r.left + r.width * .78 - HX * s, r.top + r.height * .5 - HY * s, 900, () => wait(120, grab));
+    });
+    function grab() {
+      d.t = t; t.style.zIndex = el._top(); t.classList.add('drag'); t._s = 1.1; place(t); ch.body.y.v -= 5;
+      const b = el.getBoundingClientRect(), tw = t.offsetWidth, th = t.offsetHeight;
+      const off = [tw * .78, th * .5];   // keep holding the spot we grabbed
+      const goal = [b.width * .2, b.height * .52];   // lower left of the macbook lid
+      const follow = () => { if (demo !== d) return;
+        const [hx, hy] = handAt(), bb = el.getBoundingClientRect();
+        const nx = hx - bb.left - off[0], ny = hy - bb.top - off[1];
+        t._x += (nx - t._x) * .45; t._y += (ny - t._y) * .45; place(t);
+        d.raf = requestAnimationFrame(follow); };
+      d.raf = requestAnimationFrame(follow);
+      wait(250, () => flyTo(b.left + goal[0] + off[0] - tw / 2 - HX * s, b.top + goal[1] + off[1] - th / 2 - HY * s, 1300, () => wait(200, drop)));
+    }
+    function drop() {
+      cancelAnimationFrame(d.raf);
+      const t0 = performance.now();
+      const press = now => { if (demo !== d) return; const q = Math.min(1, (now - t0) / 420);
+        t._s = 1.1 - .14 * Math.sin(q * Math.PI) * (1 - q * .4) - .1 * q; place(t);
+        if (q < 1) d.raf = requestAnimationFrame(press); else { t._s = 1; place(t); t.classList.remove('drag'); } };
+      d.raf = requestAnimationFrame(press);
+      setState(1); ch.body.y.v -= 8;
+      wait(500, () => { setState(5); ch.body.y.v -= 6; });
+      wait(1500, () => { d.t = null; demo = null; setState(1); teleport('avatar', P.cardAv); });
+    }
+  }
 
   // each tag keeps its own pastel everywhere on the site
   const TAGC = ['#ffd9f3', '#e2dcff', '#ebffb5', '#ffe2c6', '#d6e4ff', '#c8f6e4', '#fff2b8', '#ffd6d6'];
@@ -501,14 +580,15 @@
     $('vTags').innerHTML = ''; p.tags.forEach(t => { const sp = document.createElement('span'); sp.textContent = t; sp.style.setProperty('--tag', tagColor(t)); $('vTags').appendChild(sp); });
     viewer.classList.add('open'); G() && G().pause(true);
     // cases with stories: the avatar points the visitor at the phone
-    const hasStories = p.items.some(i => i.c === 'S');
-    teleport('avatar', P.cardAv, () => { if (hasStories && screen === 'viewer' && current === p) { const msg = (mob ? 'Tap' : 'Click') + ' on the phone to watch\nthe Instagram story';
+    const hasStories = p.items.some(i => i.c === 'S'), hasStickers = p.items.some(i => i.c === 'K');
+    teleport('avatar', P.cardAv, () => { if (hasStickers && screen === 'viewer' && current === p) stickerDemo(p);
+      if (hasStories && screen === 'viewer' && current === p) { const msg = (mob ? 'Tap' : 'Click') + ' on the phone to watch\nthe Instagram story';
       talk(msg, 'r');
       setTimeout(() => { if (say.textContent === msg) hush(); }, 3500); } });
     teleport('cloud', P.cardCloud);
   }
   function closeViewer() {
-    stopStories();
+    stopStories(); if (demo) { const d = demo; demo = null; d.timers.forEach(clearTimeout); cancelAnimationFrame(d.raf); travel = null; setState(1); }
     viewer.classList.remove('open'); hush();
     teleport('cloud', P.cloud);
     if (!fromFolders) G() && G().pause(false);
@@ -528,6 +608,7 @@
   let dragAv = null;
   buddy.addEventListener('pointerdown', e => {
     if (!live || screen === 'map') return;
+    if (demo) { const d = demo; demo = null; d.timers.forEach(clearTimeout); cancelAnimationFrame(d.raf); travel = null; setState(1); if (d.t) { d.t.classList.remove('drag'); d.t._s = 1; place(d.t); } }
     buddy.setPointerCapture(e.pointerId); dragAv = { dx: e.clientX - ax, dy: e.clientY - ay, px: e.clientX, py: e.clientY }; buddy.style.cursor = 'grabbing'; e.preventDefault();
   });
   addEventListener('pointerup', () => { if (dragAv) { dragAv = null; buddy.style.cursor = ''; } });
@@ -578,6 +659,7 @@
     if (screen === 'map' && live) { [ax, ay] = P.corner(); clearZone(); }
     if (!live && !travel) [ax, ay] = P.center();
     [cx, cy] = screen === 'viewer' ? P.cardCloud() : P.cloud();
+    if (demo) { const d = demo; demo = null; d.timers.forEach(clearTimeout); cancelAnimationFrame(d.raf); travel = null; setState(1); }
     if (screen === 'viewer' && current) { buildViewer(current); [ax, ay] = P.cardAv(); [cx, cy] = P.cardCloud(); }
     if (screen === 'folders') { [ax, ay] = P.folderAv(); placeFoldersClose(); }
   });
